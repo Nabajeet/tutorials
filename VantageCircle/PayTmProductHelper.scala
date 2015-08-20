@@ -2,49 +2,60 @@ package utils.crawlers
 
 import play.api.libs.json._
 import scala.collection._
+import models.crawlers._
+import actors.crawlers._
 
 /**
  * @author nabajeet
- * 
+ *
  */
 object PayTmProductHelper {
   /*
    * This method removes the null values from the feature list
    */
-  def generalizeProductFeatures(features: JsValue): Option[String] = {
-    
-    val jsonTransformer = (__ \ 'attributes).json.pick
-    
-    val jsonFeatures = features.transform(jsonTransformer)
-    
+  def filterProductFeatures(features: JsValue): JsObject = {
+
+    val jsonFeatures = (features \ "attributes").asOpt[JsValue]
+
     jsonFeatures match {
-    
-    case s: JsSuccess[JsValue] => {
-    
-      var jsonObj: JsObject = s.get.as[JsObject]
-      
-      val keys = jsonObj.keys.toList
-      
-      for (key <- keys) {
-      
-        //remove null value fields
-          if ((jsonObj \ key).equals(JsNull))
+      case Some(jsonFeatures) => {
+        var jsonObj: JsObject = jsonFeatures.as[JsObject]
+        val keys = jsonObj.keys.toList
+        for (key <- keys) {
+          //remove null value fields
+          if ((jsonObj \ key).equals(JsNull) || key.endsWith("_filter"))
             jsonObj = jsonObj - key
-        
+        }
+        jsonObj
       }
-      
-      Option(Json.stringify(jsonObj))
-      
-    }
-      case e: JsError => {
-    
-        println(" FEATURE VALIDATION ERROR \n" + e)
+      case None => {
+        println(" FEATURE VALIDATION ERROR \n")
         null
-      
       }
     }
   }
 
+  def checkAndUpdateCategoryKeys(categoryPath: String, jsonObject: JsObject): String = {
+
+    val newKeysSet: Set[String] = jsonObject.keys.toSet
+    
+    //Get old keys for category 
+    val oldKeysStr: Option[String] = DAO.CategoryKeys.getKeys(categoryPath)
+
+    oldKeysStr match {
+      case Some(oldKeysStr) => {
+        val oldKeysSet: Set[String] = oldKeysStr.split(",").toSet
+        println(oldKeysSet.toString())
+
+        val resultSet = oldKeysSet ++ newKeysSet
+
+        resultSet.mkString(",")
+      }
+      case None => {
+        newKeysSet.mkString(",")
+      }
+    }
+  }
 }
   //  case class GenericFeatures(
 //    color: Option[String],//1
